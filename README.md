@@ -5,4 +5,4 @@ This repository holds supporting data files and R code associted with the manusc
 
 **Spatiotemporal variability in water column N2O production and accumulation is linked to microbial interaction networks**    
 *Brett D. Jameson, Sheryl A. Murdock, Qixing Ji, Catherine J. Stevens, Damian S. Grundle, S. Kim Juniper*    
-(Submitted to Nature Communications, June 2022)
+(Submitted to Communications Biology, July 2022)
