@@ -3,6 +3,6 @@
 
 This repository holds supporting data files and R code associted with the manuscript:
 
-**Spatiotemporal variability in water column N2O production and accumulation is linked to microbial interaction networks**    
+**Microbial community interaction networks and ecotype niche-differentiation mirror spatiotemporal variability in water column N2O cycling**    
 *Brett D. Jameson, Sheryl A. Murdock, Qixing Ji, Catherine J. Stevens, Damian S. Grundle, S. Kim Juniper*    
 (Submitted to Communications Biology, July 2022)
