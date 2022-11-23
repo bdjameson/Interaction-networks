@@ -8,6 +8,7 @@ library(phyloseq)
 
 # Read Archaea ASV table (noRares)
 ASVarch <- read.csv("./Data/ArchaeaASVnoRares.csv")
+
 # Assign ASV column to row names
 rownames(ASVarch) <- as.character(unlist(ASVarch[, 1]))
 ASVarch <- ASVarch[, -1]
@@ -40,6 +41,7 @@ nspmls.asv.clean = t(as(otu_table(nspmls_asv), "matrix"))
 
 # Read Bacteria ASV table (noRares)
 ASVbact <- read.csv("./Data/BacteriaASVnoRares.csv")
+
 # Assign ASV column to row names
 rownames(ASVbact) <- as.character(unlist(ASVbact[, 1]))
 ASVbact <- ASVbact[, -1]
@@ -62,6 +64,9 @@ BACT_ASV_tax <- as.matrix(BACT_ASV_tax[, -1])
 ASVbact = otu_table(bact.asv.clrTrans, taxa_are_rows = TRUE)
 TAXbact = tax_table(BACT_ASV_tax)
 BACTseq_asv = phyloseq(ASVbact, TAXbact)
+BACTseq_asv <- subset_taxa(BACTseq_asv, Order!="Chloroplast")
+
+bact.asv.clean <- t(as(otu_table(BACTseq_asv), "matrix"))
 
 # Select all SUP05, Nitrospina (NOB) and SAR11 reads
 bactSelect_asv <- subset_taxa(BACTseq_asv, Genus=="SUP05_cluster" |
@@ -101,62 +106,6 @@ saanich.select.asv.comb <- cbind(nspmls.asv.clean, select.asv.clean.common)
 saanich.asv.comb <- cbind(arch.asv.clean, bact.asv.clean.common)
 
 ################################################################################
-## Partial Least Squares Regression
-################################################################################
-library(mixOmics)
-
-head(saanich.trim.common)
-# Clean up text for sample trait names
-sample.traits <- c(expression(italic("In situ")~O[2]),
-                   expression(Delta*"N"[2]*"O"),
-                   expression("[ NH"[4]^"+"*" ]"),
-                   expression("[ NO"[3]^"-" * "+" * "NO"[2]^"-"*" ]"),
-                   expression("N"*H[4]^"+"%->%N[2]*"O"),
-                   expression("N"*O[3]^"-"%->%N[2]*"O"),
-                   expression("Nitrification"),
-                   expression("N"[2]*"O yield")
-)
-
-# Creat colour pallette to distinguish taxa
-a<-as.data.frame(nspmls_asv@tax_table)
-b<-as.data.frame(bactSelect_asv@tax_table)
-t<-rbind(a,b)
-tax.col = color.mixo(as.factor(t$Genus))
-unique(tax.col)
-
-# PLSR with 3 latent components
-spls.select.asv.env <- pls(saanich.select.asv.comb, saanich.trim.common, 
-                           mode = "regression", ncomp = 3)
-
-# Determine appropriate number of model components
-perf.pls = perf(spls.select.asv.env, validation="Mfold", folds = 10, 
-                progressBar = FALSE, nrepeat = 100)
-perf.pls$measures$Q2.total
-perf.pls$measures$R2
-plot(perf.pls, criterion = 'Q2.total')
-plot(perf.pls, criterion = 'R2')
-
-# Re-fit PLSR model with 1 component
-spls.select.asv.env <- pls(saanich.select.asv.comb, saanich.trim.common, 
-                           mode = "regression", ncomp = 1)
-
-dev.off()
-# Clustered coefficient heatmap (Fig. 1)
-cim.select <- cim(spls.select.asv.env, row.sideColors = tax.col, 
-                  row.names = TRUE, symkey = TRUE,
-                  col.names = sample.traits, 
-                  legend=list(legend = c("Nitrosopumilus", "Nitrosopelagicus", 
-                                         "Nitrosopumilaceae", "SUP05", "SAR11", 
-                                         "Nitrospina"), 
-                  col = c("#F68B33", "#388ECC", "#C2C2C2", 
-                          "#F0E442", "#CC79A7", "#009E73"),
-                  cex=0.75, vjust=1), keysize = c(1,1))#, save = 'pdf'
-)
-
-plsr.correlations <- cim.select$mat
-#write.csv(plsr.correlations, "plsr.correlation.coeffs.csv")
-
-################################################################################
 ## Weighted Gene Correlational network analyses
 ################################################################################
 library(WGCNA)
@@ -178,10 +127,10 @@ gsg$allOK
 if (!gsg$allOK)
 {
   # Optionally, print the gene and sample names that were removed:
-  if (sum(!gsg$goodGenes)>0)
+  if (sum(!gsg$goodGenes) > 0)
     printFlush(paste("Removing genes:", 
                      paste(names(datExpr0)[!gsg$goodGenes], collapse = ", ")));
-  if (sum(!gsg$goodSamples)>0)
+  if (sum(!gsg$goodSamples) > 0)
     printFlush(paste("Removing samples:", 
                      paste(rownames(datExpr0)[!gsg$goodSamples], collapse = ", ")));
   # Remove the offending genes and samples from the data:
@@ -194,8 +143,8 @@ sizeGrWindow(12,9)
 #pdf(file = "Plots/sampleClustering.pdf", width = 12, height = 9);
 par(cex = 0.6);
 par(mar = c(0,4,2,0))
-plot(sampleTree, main = "Sample clustering to detect outliers", sub="", 
-     xlab="", cex.lab = 1.5, cex.axis = 1.5, cex.main = 2)
+plot(sampleTree, main = "Sample clustering to detect outliers", sub = "", 
+     xlab = "", cex.lab = 1.5, cex.axis = 1.5, cex.main = 2)
 
 # No outliers apparent so no removal steps necessary
 datExpr = datExpr0
@@ -498,8 +447,26 @@ connectivity.traits <- connectivity.traits %>%
 # Match datasets by rows
 tax <- as.data.frame(rbind(BACT_ASV_tax, ARCH_ASV_tax))
 tax <- tibble::rownames_to_column(tax, "ASV")
-connectivity.traits.tax <- merge(connectivity.traits, tax[, c("ASV", "Phylum", "Class","Order",
-        "Family", "Genus")], by="ASV")
+
+## Create Data Vector of taxonomies for heatmap labelling
+tax <-rbind(ARCH_ASV_tax, BACT_ASV_tax)
+tax <- tibble::rownames_to_column(as.data.frame(tax), "ASV")
+
+tax.mod <- tax %>% 
+  mutate(Tax = ifelse(grepl("SUP05_cluster", Genus), "SUP05", Genus))
+tax.mod <- tax.mod %>% 
+  mutate(Tax = ifelse(grepl("uncultured", Genus), Family, Tax))
+tax.mod <- tax.mod %>% 
+  mutate(Tax = ifelse(grepl("uncultured", Order), Class, Tax))
+
+tax.mod$Tax <- gsub("_unclassified","",as.character(tax.mod$Tax))
+tax.mod$Tax <- gsub("__ge","",as.character(tax.mod$Tax))
+tax.mod$Tax <- gsub("_ge","",as.character(tax.mod$Tax))
+tax.mod$Tax <- gsub("Candidatus_","",as.character(tax.mod$Tax))
+tax.mod$Tax <- gsub("marine_group","MG",as.character(tax.mod$Tax))
+
+connectivity.traits.tax <- merge(connectivity.traits, tax.mod[, c("ASV", "Phylum", "Class","Order",
+        "Family", "Genus", "Tax")], by="ASV")
 rownames(connectivity.traits.tax) <- as.character(unlist(connectivity.traits.tax[, 1]))
 #write.csv(connectivity.traits.tax, "TaxaTraitRelationships.csv")
 
@@ -519,80 +486,154 @@ names1 = rownames(sup05)
 names2 = rownames(sar11)
 names3 = colnames(nspmls.asv.clean)
 
+# Create connectivity plots
+# summary(lm(GS.Ammox ~ MMblue, data=connectivity.traits.tax))
 plot1 <- ggplot(connectivity.traits.tax) +
-  geom_point(aes(GS.Ammox, GS.Delta, colour = Subnetwork, size = kWithin), alpha = 0.45) +
-  scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"), 
-                     name = "Subnetwork", palette = "Dark2") +
-  labs(x = expression("ASV importance (Nitrification)"), y = NULL) +
-  theme_bw()
-
-plot1 <- plot1 + 
-  scale_size_continuous(name="Connectivity") +
-  theme(panel.grid = element_blank(), legend.position = "none") +
-  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
-             aes(GS.Ammox, GS.Delta), shape=0, size = 3) +
-  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
-             aes(GS.Ammox, GS.Delta), shape=2, size = 3) +
-  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(GS.Ammox, GS.Delta), shape=4, size = 3) 
-plot1
-
-plot2 <- ggplot(connectivity.traits.tax) +
-  geom_point(aes(GS.OxProd, GS.Delta, colour = Subnetwork, size = kWithin), alpha = 0.45) +
+  geom_smooth(aes(MMblue, GS.Ammox), method = "lm", color="darkgrey", se=FALSE) +
+  geom_point(aes(MMblue, GS.Ammox, colour=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
                      name = "Subnetwork", palette = "Dark2") +
-  labs(x = expression("ASV importance (N"*H[4]^"+"%->%N[2]*"O)"), y = NULL) +
-  theme_bw()
-
-plot2 <- plot2 + 
-  theme(panel.grid = element_blank(), legend.position = "none") +
-  scale_size_continuous(name="Connectivity") +
-  theme(panel.grid = element_blank(), legend.position = "none") +
+  scale_size_continuous(range = c(.4, 4),
+                        name=expression(bold("K"["in"]))) +
+  labs(y = expression("ASV importance (Nitrification)"), x = NULL) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
+        legend.position = "none")
+plot1 <- plot1 +  
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
-             aes(GS.OxProd, GS.Delta), shape = 0, size = 3) +
+             aes(MMblue, GS.Ammox), shape = 0, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
-             aes(GS.OxProd, GS.Delta), shape = 2, size = 3) +
+             aes(MMblue, GS.Ammox), shape = 2, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(GS.OxProd, GS.Delta), shape = 4, size = 3) 
+             aes(MMblue, GS.Ammox), shape = 4, size = 2.5) 
+
+# summary(lm(GS.Reduc ~ MMbrown, data=connectivity.traits.tax))
+plot2 <- ggplot(connectivity.traits.tax) +
+  geom_smooth(aes(MMbrown, GS.Reduc), method = "lm", color="darkgrey", se=FALSE) +
+  geom_point(aes(MMbrown, GS.Reduc, colour=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
+  scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
+                     name = "Subnetwork", palette = "Dark2") +
+  labs(y = expression("ASV importance (N"*O[3]^"-"%->%N[2]*"O)"), x = NULL) +
+  scale_size_continuous(range = c(.4, 4),
+                        name=expression(bold("K"["in"]))) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
+        legend.position = "none")
+plot2 <- plot2 +  
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
+             aes(MMbrown, GS.Reduc), shape = 0, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
+             aes(MMbrown, GS.Reduc), shape = 2, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
+             aes(MMbrown, GS.Reduc), shape = 4, size = 2.5) 
 plot2
 
+# summary(lm(GS.OxProd ~ MMbrown, data=connectivity.traits.tax))
 plot3 <- ggplot(connectivity.traits.tax) +
-  geom_point(aes(GS.Reduc, GS.Delta, colour = Subnetwork, size = kWithin), alpha = 0.45) +
+  geom_smooth(aes(MMbrown, GS.OxProd), method = "lm", color="darkgrey", se=FALSE) +
+  geom_point(aes(MMbrown, GS.OxProd, colour=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
                      name = "Subnetwork", palette = "Dark2") +
-  labs(x = expression("ASV importance (N"*O[3]^"-"%->%N[2]*"O)"), y = NULL) +
-  theme_bw()
-
-plot3 <- plot3 + 
-  scale_size_continuous(name="Connectivity") +
-  theme(panel.grid = element_blank(), legend.position = c(0.85, 0.75), 
-        legend.background = element_rect(linetype = 2, size = 0.5, colour = 1),
-        legend.key.size = unit(0.1, 'mm')) +
+  scale_size_continuous(range = c(.4, 4),
+                        name=expression(bold("K"["in"]))) +
+  labs(y = expression("ASV importance (N"*H[4]^"+"%->%N[2]*"O)"), x = NULL) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
+        legend.position = "none")
+plot3 <- plot3 +  
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
-             aes(GS.Reduc, GS.Delta), shape = 0, size = 3) +
+             aes(MMbrown, GS.OxProd), shape = 0, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
-             aes(GS.Reduc, GS.Delta), shape = 2, size = 3) +
+             aes(MMbrown, GS.OxProd), shape = 2, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(GS.Reduc, GS.Delta), shape = 4, size = 3) 
+             aes(MMbrown, GS.OxProd), shape = 4, size = 2.5) 
 plot3
 
-# Creat text for common y-axis
-library(grid)
-library(gridExtra)
-y.grob <- textGrob(expression("ASV importance ("*Delta*N[2]*"O)"), 
-                   gp=gpar(fontface="bold", col="black", fontsize=12), rot=90)
+# summary(lm(GS.Yield ~ MMbrown, data=connectivity.traits.tax))
+plot4 <- ggplot(connectivity.traits.tax) +
+  geom_smooth(aes(MMbrown, GS.Yield), method = "lm", color="darkgrey", se=FALSE) +
+  geom_point(aes(MMbrown, GS.Yield, colour=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
+  scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
+                     name = "Subnetwork", palette = "Dark2") +
+  scale_size_continuous(range = c(.4, 4),
+                        name=expression(bold("K"["in"]))) +
+  labs(y = expression("ASV importance ("*N[2]*"O"~"yield)"), x = NULL) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"), 
+        legend.position = "none")
+plot4 <- plot4 +  
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
+             aes(MMbrown, GS.Yield), shape = 0, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
+             aes(MMbrown, GS.Yield), shape = 2, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
+             aes(MMbrown, GS.Yield), shape = 4, size = 2.5) 
+plot4
 
-# Combine and save connectivity plots
-connectivityPlots <- ggpubr::ggarrange(plot1, plot2,  plot3,
-                        labels = "AUTO", # labels
-                        align = "h", # Align them both, horizontal and vertical
-                        nrow = 1, ncol = 3)  # number of rows
+# summary(lm(GS.Delta ~ MMblue, data=connectivity.traits.tax))
+plot5 <- ggplot(connectivity.traits.tax) +
+  geom_smooth(aes(MMblue, GS.Delta), method = "lm", color="darkgrey", se=FALSE) +
+  geom_point(aes(MMblue, GS.Delta, colour=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
+  scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
+                     name = "Subnetwork", palette = "Dark2") +
+  scale_size_continuous(range = c(.4, 4), 
+                        name=expression(bold("K"["in"]))) +
+  labs(y = expression("ASV importance ("*Delta*N[2]*"O)"), x = NULL) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
+        legend.position = "none")
+plot5 <- plot5 +  
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
+             aes(MMblue, GS.Delta), shape = 0, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
+             aes(MMblue, GS.Delta), shape = 2, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
+             aes(MMblue, GS.Delta), shape = 4, size = 2.5) 
+plot5
 
-# Add labels
-connectivityPlots <- grid.arrange(arrangeGrob(connectivityPlots, left = y.grob))
-#ggsave(filename= "Connectivity_ASVsig.pdf", plot = connectivityPlots, 
-#       width = 12.5, height = 4.5)
+plot6 <- ggplot(connectivity.traits.tax, aes(MMblue, MMturquoise)) + 
+  geom_point(aes(color=Subnetwork,
+                 size=kWithin), alpha = 0.45) +
+  scale_size_continuous(range = c(.4, 4), 
+                        name=expression(bold("K"["in"]))) +
+  labs(x=NULL, y="SNET3 Membership") +
+  scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
+                     name = "Subnetwork", palette = "Dark2") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = "none",)
 
+plot6 <- plot6 +  
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
+             aes(MMblue, MMturquoise), shape = 0, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
+             aes(MMblue, MMturquoise), shape = 2, size = 2.5) +
+  geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
+             aes(MMblue, MMturquoise), shape = 4, size = 2.5) 
+plot6
+
+
+rates <- ggpubr::ggarrange(plot3 + theme(axis.title.x = element_blank()),
+                           plot5 + theme(axis.title.x = element_blank()),
+                           plot4 + theme(axis.title.x = element_blank()), 
+                           plot1 + theme(axis.title.x = element_blank()),
+                           plot2 + scale_x_continuous(name = "SNET1 Membership", 
+                                                      position = "bottom"),
+                           plot6 + scale_x_continuous(name = "SNET2 Membership", 
+                                                        position = "bottom"),
+                           labels= c("a)", "b)", "c)", "d)", "e)", "f)"),
+                           label.x = 0.2, label.y = 0.95,
+                           heights = c(1,1,1.05), 
+                           common.legend = TRUE,
+                           nrow=3, ncol=2)
+rates
+
+# ggsave(rates, filename = "Jameson_et_al_Fig4.pdf",
+#        height = 7.87, width = 6.06)
 
 #####################################################################################################
 ## Propr Network analyses
@@ -614,14 +655,122 @@ NoRaresCorrALL <- getResults(arch.bact.pr)
 
 # Match datasets by rows
 test <- tibble::rownames_to_column(connectivity.traits.tax, "Partner")
-tax.source <-  tax %>% dplyr::rename(Partner = ASV)
-tax.target <- tax %>% dplyr::rename(Pair = ASV)
 
-NoRaresCorrALL <- merge(NoRaresCorrALL, tax.source[, c("Partner", "Genus")], by="Partner")
-NoRaresCorrALL <- merge(NoRaresCorrALL, tax.target[, c("Pair", "Genus")], by="Pair")
+tax.source <-  tax.mod %>% dplyr::rename(Partner = ASV)
+tax.target <- tax.mod %>% dplyr::rename(Pair = ASV)
+
+NoRaresCorrALL <- merge(NoRaresCorrALL, tax.source[, c("Partner", "Tax")], by="Partner")
+NoRaresCorrALL <- merge(NoRaresCorrALL, tax.target[, c("Pair", "Tax")], by="Pair")
+
 NoRaresCorrALL <- merge(NoRaresCorrALL, test[, c("Partner", "kWithin")], by="Partner")
 NoRaresCorrALL <- merge(NoRaresCorrALL, test[, c("Partner", "Subnetwork")], by="Partner")
 
 NoRaresCorrALL.subset <- subset(NoRaresCorrALL, propr >= 0.60 | propr <= -0.60)
 
-# write.csv(NoRaresCorrALL.subset, "arch.bact.propr.network.60.csv")
+#write.csv(NoRaresCorrALL.subset, "arch.bact.propr.network.60.csv")
+
+################################################################################
+## Partial Least Squares Regression
+################################################################################
+library(mixOmics)
+
+# PLSR with 5 latent components on the full microbial ASV table
+spls.asv.env <- spls(saanich.asv.comb, saanich.trim.common, 
+                     mode = "regression", ncomp = 5)
+
+# Evaluate performance of model components
+perf.pls = perf(spls.asv.env, validation="loo", folds = 18, 
+                progressBar = FALSE, nrepeat = 1)
+perf.pls$measures$Q2.total
+perf.pls$measures$R2
+perf.pls$measures$RMSEP
+plot(perf.pls, criterion = 'Q2.total')
+plot(perf.pls, criterion = 'R2')
+plot(perf.pls, criterion = 'RMSEP')
+
+# set range of test values for number of variables to use from X dataframe
+list.keepX <- c(seq(15, 50, 5))
+# set range of test values for number of variables to use from Y dataframe
+list.keepY <- c(2:8) 
+
+
+# Perform variable selection on X and Y dataframe 
+tune.spls<- tune.spls(saanich.asv.comb, saanich.trim.common, ncomp = 2,
+                      test.keepX = list.keepX,
+                      test.keepY = list.keepY,
+                      nrepeat = 1, folds = 18,
+                      validation="loo",
+                      mode = 'regression', measure = 'cor') 
+plot(tune.spls)
+
+optimal.keepX <- tune.spls$choice.keepX # extract optimal number of X variables
+optimal.keepY <- tune.spls$choice.keepY # extract optimal number of Y variables
+optimal.ncomp <-  length(optimal.keepX) # extract optimal number of components
+
+# Re-fit PLSR model using tuned parameters
+spls.asv.env <- spls(saanich.asv.comb, saanich.trim.common,
+                     mode = "regression", ncomp = optimal.ncomp,
+                     keepX = optimal.keepX, keepY = optimal.keepY)
+
+## Create Data Vector of taxonomies for heatmap labelling
+taxa <- as.data.frame(spls.asv.env$names$colnames$X)
+names(taxa)[1] <- "ASV"
+
+taxmatch <- merge(taxa, tax.mod[, c("ASV", "Tax")], by="ASV")
+taxmatch.reorder <- taxmatch[match(taxa$ASV, taxmatch$ASV), ]
+
+head(saanich.trim.common)
+# Clean up text for sample trait names
+sample.traits <- c(expression(italic("In situ")~O[2]),
+                   expression(Delta*"N"[2]*"O"),
+                   expression("[ NH"[4]^"+"*" ]"),
+                   expression("[ NO"[3]^"-" * "+" * "NO"[2]^"-"*" ]"),
+                   expression("N"*H[4]^"+"%->%N[2]*"O"),
+                   expression("N"*O[3]^"-"%->%N[2]*"O"),
+                   expression("Nitrification"),
+                   expression("N"[2]*"O yield")
+)
+
+# Create taxonomy table mapped to spls object
+a<-as.data.frame(BACTseq_asv@tax_table)
+b<-as.data.frame(ARCHseq_asv@tax_table)
+t<-rbind(a,b)
+t <- tibble::rownames_to_column(as.data.frame(t), "ASV")
+t <- merge(t, connectivity.traits[, c("ASV", "Subnetwork")], by="ASV")
+t <- t[match(taxa$ASV, t$ASV), ]
+
+
+# Assign color key to distinguish bacteria from archaea
+tax.col = color.mixo(as.factor(t$Subnetwork))
+unique(tax.col)
+tax.col<- replace(tax.col, tax.col=="#388ECC", "#1b9e77")
+tax.col<- replace(tax.col, tax.col=="#F68B33", "#d95f02")
+tax.col<- replace(tax.col, tax.col=="#C2C2C2", "#7570b3")
+
+dev.off()
+# Clustered coefficient heatmap (Fig. 1)
+cim.select <- cim(spls.asv.env, 
+                  row.names = taxmatch.reorder$Tax, 
+                  symkey = TRUE,
+                  col.names = sample.traits, 
+                  cutoff = 0.2,
+                  row.sideColors = tax.col,
+                  row.cex = 0.60,
+                  legend=list(legend = c("SNET1", "SNET2", "SNET3"), 
+                              col = c("#1b9e77", "#d95f02", "#7570b3"),
+                              cex=0.75, vjust=1), keysize = c(1,1),
+                  margins = c(6,6),
+save = 'pdf'
+)
+
+# Print pairwise correlation matrix
+plsr.correlations <- cim.select$mat
+plsr.correlations
+
+plsr.correlations <- tibble::rownames_to_column(as.data.frame(plsr.correlations), "ASV")
+plsr.taxmatch <- merge(plsr.correlations, saanich.tax.comb[, 
+                       c("ASV","Phylum", "Class","Order", "Family", "Genus")], 
+                       by="ASV")
+
+#write.csv(plsr.taxmatch, "plsr.correlations.csv")
+#
