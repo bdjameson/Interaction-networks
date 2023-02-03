@@ -5,4 +5,4 @@ This repository holds supporting data files and R code associted with the manusc
 
 **Microbial community interaction networks reveal putative keystone taxa implicated in water column N2O cycling**    
 *Brett D. Jameson, Sheryl A. Murdock, Qixing Ji, Catherine J. Stevens, Damian S. Grundle, S. Kim Juniper*    
-(Submitted to Communications Biology, July 2022)
+(In press) at Communications Biology
