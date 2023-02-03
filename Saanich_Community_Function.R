@@ -5,7 +5,7 @@ library(zCompositions)
 library(compositions)
 library(dplyr)
 library(phyloseq)
-library(ggplot)
+library(ggplot2)
 
 # Read Archaea ASV table (noRares)
 ASVarch <- read.csv("./Data/ArchaeaASVnoRares.csv")
@@ -500,17 +500,20 @@ plot1 <- ggplot(connectivity.traits.tax) +
                         name=expression(bold("K"["in"]))) +
   labs(y = expression("ASV importance (Nitrification)"), x = NULL) +
   theme_bw() +
-  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
-        legend.position = "none")
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "plain"),
+        legend.position = c(0.775,0.175), legend.background = element_rect(color="black"),
+        legend.key.size = unit(2.5, "mm")) 
 plot1 <- plot1 +  
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
              aes(MMblue, GS.Ammox), shape = 0, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
              aes(MMblue, GS.Ammox), shape = 2, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(MMblue, GS.Ammox), shape = 4, size = 2.5) 
+             aes(MMblue, GS.Ammox), shape = 4, size = 2.5) +
+  guides(color="legend", size = "none")
+plot1
 
-# summary(lm(GS.Reduc ~ MMbrown, data=connectivity.traits.tax))
+
 plot2 <- ggplot(connectivity.traits.tax) +
   geom_smooth(aes(MMbrown, GS.Reduc), method = "lm", color="darkgrey", se=FALSE) +
   geom_point(aes(MMbrown, GS.Reduc, colour=Subnetwork,
@@ -579,7 +582,7 @@ plot4 <- plot4 +
              aes(MMbrown, GS.Yield), shape = 4, size = 2.5) 
 plot4
 
-# summary(lm(GS.Delta ~ MMblue, data=connectivity.traits.tax))
+
 plot5 <- ggplot(connectivity.traits.tax) +
   geom_smooth(aes(MMblue, GS.Delta), method = "lm", color="darkgrey", se=FALSE) +
   geom_point(aes(MMblue, GS.Delta, colour=Subnetwork,
@@ -588,21 +591,24 @@ plot5 <- ggplot(connectivity.traits.tax) +
                      name = "Subnetwork", palette = "Dark2",
                      direction = -1) +
   scale_size_continuous(range = c(.4, 4), 
-                        name=expression(bold("K"["in"]))) +
+                        name=expression("K"["in"])) +
   labs(y = expression("ASV importance ("*Delta*N[2]*"O)"), x = NULL) +
   theme_bw() +
-  theme(panel.grid = element_blank(), legend.title = element_text(face = "bold"),
-        legend.position = "none")
+  theme(panel.grid = element_blank(), legend.title = element_text(face = "plain"),
+        legend.position = c(0.875,0.25), legend.background = element_rect(color="black"),
+        legend.key.size = unit(2.5, "mm"))  
 plot5 <- plot5 +  
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
              aes(MMblue, GS.Delta), shape = 0, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
              aes(MMblue, GS.Delta), shape = 2, size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(MMblue, GS.Delta), shape = 4, size = 2.5) 
+             aes(MMblue, GS.Delta), shape = 4, size = 2.5) +
+  guides(size = "legend", color="none")
 plot5
 
 plot6 <- ggplot(connectivity.traits.tax, aes(MMblue, MMturquoise)) + 
+  geom_smooth(aes(MMblue, MMturquoise), method = "lm", color="darkgrey", se=FALSE) +
   geom_point(aes(color=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_size_continuous(range = c(.4, 4), 
@@ -611,18 +617,21 @@ plot6 <- ggplot(connectivity.traits.tax, aes(MMblue, MMturquoise)) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
                      name = "Subnetwork", palette = "Dark2",
                      direction = -1) +
-  theme_bw() +
-  theme(panel.grid = element_blank(), legend.position = "none",)
+  theme_bw() 
 
 plot6 <- plot6 +  
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names1), ],
-             aes(MMblue, MMturquoise), shape = 0, size = 2.5) +
+             aes(MMblue, MMturquoise, shape = "SUP05"), size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names2), ],
-             aes(MMblue, MMturquoise), shape = 2, size = 2.5) +
+             aes(MMblue, MMturquoise, shape = "SAR11"),  size = 2.5) +
   geom_point(data=connectivity.traits.tax[(rownames(connectivity.traits.tax) %in% names3), ],
-             aes(MMblue, MMturquoise), shape = 4, size = 2.5) 
+             aes(MMblue, MMturquoise, shape = "AOA"), size = 2.5) +
+  scale_shape_manual(name = "Taxa", values = c('SUP05' = 0, 'SAR11' = 2, 'AOA' = 4)) +
+  theme(panel.grid = element_blank(), legend.position = c(0.83,0.16),
+        legend.background = element_rect(color="black"),
+        legend.key.size = unit(1, "mm"), legend.title = element_blank()) +
+  guides(shape = "legend", size = "none", color="none")
 plot6
-
 
 
 rates <- cowplot::plot_grid(plot3 + theme(axis.title.x = element_blank()),
