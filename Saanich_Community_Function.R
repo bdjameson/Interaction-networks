@@ -5,6 +5,7 @@ library(zCompositions)
 library(compositions)
 library(dplyr)
 library(phyloseq)
+library(ggplot)
 
 # Read Archaea ASV table (noRares)
 ASVarch <- read.csv("./Data/ArchaeaASVnoRares.csv")
@@ -493,7 +494,8 @@ plot1 <- ggplot(connectivity.traits.tax) +
   geom_point(aes(MMblue, GS.Ammox, colour=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   scale_size_continuous(range = c(.4, 4),
                         name=expression(bold("K"["in"]))) +
   labs(y = expression("ASV importance (Nitrification)"), x = NULL) +
@@ -514,7 +516,8 @@ plot2 <- ggplot(connectivity.traits.tax) +
   geom_point(aes(MMbrown, GS.Reduc, colour=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   labs(y = expression("ASV importance (N"*O[3]^"-"%->%N[2]*"O)"), x = NULL) +
   scale_size_continuous(range = c(.4, 4),
                         name=expression(bold("K"["in"]))) +
@@ -536,7 +539,8 @@ plot3 <- ggplot(connectivity.traits.tax) +
   geom_point(aes(MMbrown, GS.OxProd, colour=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   scale_size_continuous(range = c(.4, 4),
                         name=expression(bold("K"["in"]))) +
   labs(y = expression("ASV importance (N"*H[4]^"+"%->%N[2]*"O)"), x = NULL) +
@@ -558,7 +562,8 @@ plot4 <- ggplot(connectivity.traits.tax) +
   geom_point(aes(MMbrown, GS.Yield, colour=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   scale_size_continuous(range = c(.4, 4),
                         name=expression(bold("K"["in"]))) +
   labs(y = expression("ASV importance ("*N[2]*"O"~"yield)"), x = NULL) +
@@ -580,7 +585,8 @@ plot5 <- ggplot(connectivity.traits.tax) +
   geom_point(aes(MMblue, GS.Delta, colour=Subnetwork,
                  size=kWithin), alpha = 0.45) +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   scale_size_continuous(range = c(.4, 4), 
                         name=expression(bold("K"["in"]))) +
   labs(y = expression("ASV importance ("*Delta*N[2]*"O)"), x = NULL) +
@@ -603,7 +609,8 @@ plot6 <- ggplot(connectivity.traits.tax, aes(MMblue, MMturquoise)) +
                         name=expression(bold("K"["in"]))) +
   labs(x=NULL, y="SNET3 Membership") +
   scale_color_brewer(labels = c("SNET1", "SNET2", "SNET3"),
-                     name = "Subnetwork", palette = "Dark2") +
+                     name = "Subnetwork", palette = "Dark2",
+                     direction = -1) +
   theme_bw() +
   theme(panel.grid = element_blank(), legend.position = "none",)
 
@@ -617,7 +624,8 @@ plot6 <- plot6 +
 plot6
 
 
-rates <- ggpubr::ggarrange(plot3 + theme(axis.title.x = element_blank()),
+
+rates <- cowplot::plot_grid(plot3 + theme(axis.title.x = element_blank()),
                            plot5 + theme(axis.title.x = element_blank()),
                            plot4 + theme(axis.title.x = element_blank()), 
                            plot1 + theme(axis.title.x = element_blank()),
@@ -626,18 +634,19 @@ rates <- ggpubr::ggarrange(plot3 + theme(axis.title.x = element_blank()),
                            plot6 + scale_x_continuous(name = "SNET2 Membership", 
                                                         position = "bottom"),
                            labels= c("a)", "b)", "c)", "d)", "e)", "f)"),
-                           label.x = 0.2, label.y = 0.95,
+                           label_fontface="plain",
+                           label_x = 0.2, label_y = 0.955,
                            heights = c(1,1,1.05), 
                            common.legend = TRUE,
                            nrow=3, ncol=2)
 rates
 
-# ggsave(rates, filename = "Jameson_et_al_Fig4.pdf",
-#        height = 7.87, width = 6.06)
+#ggsave(rates, filename = "Jameson_et_al_Fig4.pdf",
+#        height = 7.87, width = 6.06, dpi = 300)
 
-#####################################################################################################
+################################################################################
 ## Propr Network analyses
-#####################################################################################################
+################################################################################
 library(propr)
 
 arch.asv.ZeroRepl.pr <- subset(arch.asv.ZeroRepl, rownames(arch.asv.ZeroRepl) %in% common)
@@ -665,10 +674,75 @@ NoRaresCorrALL <- merge(NoRaresCorrALL, tax.target[, c("Pair", "Tax")], by="Pair
 NoRaresCorrALL <- merge(NoRaresCorrALL, test[, c("Partner", "kWithin")], by="Partner")
 NoRaresCorrALL <- merge(NoRaresCorrALL, test[, c("Partner", "Subnetwork")], by="Partner")
 
+# Subset network to include rho values > |0.60|
 NoRaresCorrALL.subset <- subset(NoRaresCorrALL, propr >= 0.60 | propr <= -0.60)
 
 #write.csv(NoRaresCorrALL.subset, "arch.bact.propr.network.60.csv")
 
+# Import outputs of Cytoscape network analysis
+node <- read.csv("./Data/ProprNetworkAnalysis.csv")
+
+matchtax <- c("ARCH28", "BACT54", "BACT121", "ARCH37", "ARCH40", "BACT260", "BACT1644", "ARCH4", "BACT211",
+              "BACT110", "BACT5", "BACT19", "BACT94", "BACT52", "BACT15", "BACT10", "BACT2", "BACT25")
+splsr.taxa<-node[match(matchtax, node$ASV, nomatch=0),]
+
+
+# Create important taxa layers
+SAR11 <- node %>% subset(Tax == "SAR11")
+SUP05 <- node %>% subset(Tax == "SUP05")
+Rhodo <- node %>% subset(Tax == "Rhodobacteraceae" | Tax == "Amylibacter" |
+                           Tax == "Roseibacillus" | Tax == "Planktomarina" |
+                           Tax == "Tateyamaria")
+verruco <- node %>% subset(Tax == "Verrucomicrobiales" | Tax == "Verrucomicrobiae" | Tax == "MB11C04_MG")
+flavo <- node %>% subset(Tax == "Flavobacteriaceae" | Tax == "Flavobacteriales")
+marini <- node %>% subset(Tax == "Marinimicrobia")
+desulfo <- node %>% subset(Tax == "Desulfobacteraceae")
+ecto <- node %>% subset(Tax == "Ectothiorhodospiraceae")
+bacter <- node %>% subset(Tax == "Bacteroidales" | Tax == "Bacteroidetes_BD2-2")
+nitro <- node %>% subset(Tax == "Nitrospina")
+pelag <- node %>% subset(Tax == "Nitrosopelagicus")
+pumil <- node %>% subset(Tax == "Nitrosopumilus")
+greys <- node %>% subset(Tax == "Synechococcus_CC9902")
+
+keystone <- ggplot() + 
+  geom_point(data=node,aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour="darkgrey", alpha =0.75) +
+  geom_point(data=marini, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#8C510A", alpha =0.75) +
+  geom_point(data=desulfo, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#FBF500", alpha =0.75) +
+  geom_point(data=ecto, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#00E3A1", alpha =0.75) +
+  geom_point(data=bacter, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#0000FF", alpha =0.75) +
+  geom_point(data=nitro, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#B3DE69", alpha =0.75) +
+  geom_point(data=pelag, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#0B3B3B", alpha =0.75) +
+  geom_point(data=pumil, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#CB181D", alpha =0.75) +
+  geom_point(data=SAR11, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#2B8CBE", alpha =0.75) +
+  geom_point(data=Rhodo, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#E6AB02", alpha =0.75) +
+  geom_point(data=SUP05, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour = "#88419D", alpha =0.75) +
+  geom_point(data=greys, aes(Degree, ClosenessCentrality, size = BetweennessCentrality, 
+        shape=Subnetwork), colour="darkgrey") +
+  geom_point(data=splsr.taxa, aes(Degree, ClosenessCentrality), 
+        colour = "black", size=2, shape=8) +
+  scale_size_continuous(range = c(1, 6), name="Betweenness centrality") +
+  scale_shape_manual(values = c(15,17,16)) +
+  guides(shape = guide_legend(override.aes = list(size=4))) +
+  labs(x="Node degree", y="Closeness centrality") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = c(0.60,0.2),
+        legend.key.size = unit(1, 'lines'), legend.title = element_text(size=10),
+        legend.text = element_text(size=8), legend.box = "horizontal")
+keystone 
+
+#ggsave(rates, filename = "Jameson_et_al_Fig3b.pdf",
+#        height = 4, width = 4, dpi = 300)
 ################################################################################
 ## Partial Least Squares Regression
 ################################################################################
@@ -743,9 +817,9 @@ t <- t[match(taxa$ASV, t$ASV), ]
 # Assign color key to distinguish bacteria from archaea
 tax.col = color.mixo(as.factor(t$Subnetwork))
 unique(tax.col)
-tax.col<- replace(tax.col, tax.col=="#388ECC", "#1b9e77")
+tax.col<- replace(tax.col, tax.col=="#388ECC", "#7570b3")
 tax.col<- replace(tax.col, tax.col=="#F68B33", "#d95f02")
-tax.col<- replace(tax.col, tax.col=="#C2C2C2", "#7570b3")
+tax.col<- replace(tax.col, tax.col=="#C2C2C2", "#1b9e77")
 
 dev.off()
 # Clustered coefficient heatmap (Fig. 1)
@@ -757,10 +831,10 @@ cim.select <- cim(spls.asv.env,
                   row.sideColors = tax.col,
                   row.cex = 0.60,
                   legend=list(legend = c("SNET1", "SNET2", "SNET3"), 
-                              col = c("#1b9e77", "#d95f02", "#7570b3"),
+                              col = c("#7570b3", "#d95f02", "#1b9e77"),
                               cex=0.75, vjust=1), keysize = c(1,1),
                   margins = c(6,6),
-save = 'pdf'
+                  save = 'pdf'
 )
 
 # Print pairwise correlation matrix
@@ -774,3 +848,50 @@ plsr.taxmatch <- merge(plsr.correlations, saanich.tax.comb[,
 
 #write.csv(plsr.taxmatch, "plsr.correlations.csv")
 #
+################################################################################
+## PICRUSt2 nosZ predictions
+################################################################################
+
+# Read bacterial gene predictions
+GENEbact <- read.csv("./PICRUSt2/BacteriaKEGGabund.csv")
+rownames(GENEbact) <- as.character(unlist(GENEbact[, 1]))# Change header names to top row names
+GENEbact <- GENEbact[, -1]
+
+gene.path.ZeroRepl <- cmultRepl(t(GENEbact), label = 0, method = "GBM", output = "p-counts")
+
+gene.path.clrTrans <- apply(t(gene.path.ZeroRepl), 2, function(x) {
+  log(x) - mean(log(x))
+})
+
+gene.path.clrTrans.trans <- t(gene.path.clrTrans)
+
+
+# Combine gene abundances and metadata
+GenePathComp <-cbind(gene.path.clrTrans.trans, saanich)
+GenePathComp$Month <- recode(GenePathComp$Month,
+                        "4" = "Apr 2018",
+                        "6" = "Jun 2018",
+                        "8" = "Aug 2018",
+                        "10" = "Oct 2018",
+)
+
+# Create nosZ scatterplot
+x1_title <- expression(paste("Predicted"~italic("nosZ"), "gene abundance (clr-transformed)"))
+nosPlot <- ggplot(GenePathComp, aes(K00376, delta_N2O)) + 
+  geom_point(aes(shape=Month), size=3) +
+  geom_smooth(method = "lm", se=FALSE, size=0.5, colour="black") +
+  labs(x=x1_title, y = expression(Delta*N[2]*"O (nmol L"^-1*")")) +
+  scale_y_continuous(limits=c(-14,20)) +
+  scale_x_continuous(limits=c(-0.5,3.0)) +
+  scale_shape_manual(values = c(22,1,2,9), 
+                     breaks = c("Apr 2018", "Jun 2018", "Aug 2018", "Oct 2018")) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), axis.title = element_text(size=10),
+        axis.text = element_text(size=8), legend.position = c(0.75, 0.75),
+        legend.background = element_rect(colour = "black", size =0.25)) +
+  annotate("text", x = 0, y = -12, label = expression("R"^2~"= 0.59"), size=3) +
+  annotate("text", x = 0, y = -14, label = expression(italic("p =")~"9.6 x 10"^-6), size=3)
+nosPlot
+
+#ggsave(rates, filename = "Jameson_et_al_Fig3b.pdf",
+#        width = 4.25, height=4, dpi = 300)
